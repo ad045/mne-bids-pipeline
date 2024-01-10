@@ -90,6 +90,8 @@ def get_subjects(config: SimpleNamespace) -> List[str]:
         entity_key="subject",
         ignore_datatypes=_get_ignore_datatypes(config),
     )
+    # print("in get_subjects")  
+
     if config.subjects == "all":
         s = _valid_subjects
     else:
@@ -98,6 +100,8 @@ def get_subjects(config: SimpleNamespace) -> List[str]:
     subjects = set(s) - set(config.exclude_subjects)
     # Drop empty-room subject.
     subjects = subjects - set(["emptyroom"])
+    # print("in get_subjects")  
+
 
     return sorted(subjects)
 

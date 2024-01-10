@@ -65,6 +65,10 @@ def get_input_fnames_data_quality(
 @failsafe_run(
     get_input_fnames=get_input_fnames_data_quality,
 )
+
+class DataQualityException(Exception):
+    pass
+
 def assess_data_quality(
     *,
     cfg: SimpleNamespace,
@@ -76,7 +80,7 @@ def assess_data_quality(
     in_files: dict,
 ) -> dict:
     """Assess data quality and find and mark bad channels."""
-    import matplotlib.pyplot as plt
+    # import matplotlib.pyplot as plt
 
     out_files = dict()
     key = f"raw_task-{task}_run-{run}"
@@ -98,7 +102,9 @@ def assess_data_quality(
             out_files=out_files,
         )
     else:
-        auto_scores = None
+        auto_scores = None              # This happens. 
+        print("oh shit, auto_scores are none?")
+        raise DataQualityException("Data quality assessment is None")
     del key
 
     # Report
@@ -125,19 +131,23 @@ def assess_data_quality(
             assert auto_scores is not None
             msg = "Adding noisy channel detection to report"
             logger.info(**gen_log_kwargs(message=msg))
-            figs = plot_auto_scores(auto_scores, ch_types=cfg.ch_types)
-            captions = [f"Run {run}"] * len(figs)
-            tags = ("raw", "data-quality", f"run-{run}")
-            report.add_figure(
-                fig=figs,
-                caption=captions,
-                section="Data quality",
-                title=f"Bad channel detection: {run}",
-                tags=tags,
-                replace=True,
-            )
-            for fig in figs:
-                plt.close(fig)
+            # figs = plot_auto_scores(auto_scores, ch_types=cfg.ch_types)
+            # captions = [f"Run {run}"] * len(figs)
+            # tags = ("raw", "data-quality", f"run-{run}")
+            # report.add_figure(
+            #     fig=figs,
+            #     caption=captions,
+            #     section="Data quality",
+            #     title=f"Bad channel detection: {run}",
+            #     tags=tags,
+            #     replace=True,
+            # )
+            # for fig in figs:
+            #     plt.close(fig)
+            print("AUTO SCORES")
+            print(auto_scores)
+            print("OUT_FILES")
+            print(out_files)
 
     assert len(in_files) == 0, in_files.keys()
     return _prep_out_files(exec_params=exec_params, out_files=out_files)
@@ -271,12 +281,14 @@ def _find_bads_maxwell(
     tsv_data.to_csv(out_files["bads_tsv"], sep="\t", index=False)
 
     # Interaction
-    if exec_params.interactive and cfg.find_noisy_channels_meg:
-        import matplotlib.pyplot as plt
+    # if exec_params.interactive and cfg.find_noisy_channels_meg:
+    #     import matplotlib.pyplot as plt
 
-        plot_auto_scores(auto_scores, ch_types=cfg.ch_types)
-        plt.show()
+    #     plot_auto_scores(auto_scores, ch_types=cfg.ch_types)
+    #     plt.show()
 
+    print("AUTO_SCORES 2: ")
+    print(auto_scores)
     return auto_scores
 
 
@@ -312,26 +324,40 @@ def get_config(
 
 def main(*, config: SimpleNamespace) -> None:
     """Run assess_data_quality."""
-    with get_parallel_backend(config.exec_params):
+    # counter = 0 
+    with get_parallel_backend(config.exec_params):  
         parallel, run_func = parallel_func(
-            assess_data_quality, exec_params=config.exec_params
+            assess_data_quality, exec_params=config.exec_params  # assess data quality may be None
         )
-        logs = parallel(
-            run_func(
-                cfg=get_config(config=config, subject=subject, session=session),
-                exec_params=config.exec_params,
-                subject=subject,
-                session=session,
-                run=run,
-                task=task,
-            )
-            for subject in get_subjects(config)
-            for session in get_sessions(config)
-            for run, task in get_runs_tasks(
-                config=config,
-                subject=subject,
-                session=session,
-            )
-        )
+
+        logs = []
+        for subject in get_subjects(config):
+            for session in get_sessions(config):
+                for run, task in get_runs_tasks(
+                    config=config,
+                    subject=subject,
+                    session=session,
+                ):
+                    try:
+                        result = run_func(
+                            cfg=get_config(config=config, subject=subject, session=session),
+                            exec_params=config.exec_params,
+                            subject=subject,
+                            session=session,
+                            run=run,
+                            task=task,
+                        ) if assess_data_quality is not None else None
+                        # log result or deal with None return of assess_data_quality. 
+                        logs.append(result) if assess_data_quality is not None else logs.append(None)
+
+                    except DataQualityException as e:
+                        # Handle the case where assess_data_quality raised the custom exception
+                        print(f"Data quality assessment exception: {e}")
+
+                    if result == None: 
+                        print("None_01_result")
+  
+        # print("done with all subjects")
+    # print("done with parallel backend")
 
     save_logs(config=config, logs=logs)

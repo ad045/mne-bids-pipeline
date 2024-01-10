@@ -58,6 +58,11 @@ def get_input_fnames_drop_ptp(
 @failsafe_run(
     get_input_fnames=get_input_fnames_drop_ptp,
 )
+
+# class DataQualityException(Exception):
+#     pass
+
+
 def drop_ptp(
     *,
     cfg: SimpleNamespace,
@@ -243,17 +248,34 @@ def main(*, config: SimpleNamespace) -> None:
     """Run epochs."""
     parallel, run_func = parallel_func(drop_ptp, exec_params=config.exec_params)
 
-    with get_parallel_backend(config.exec_params):
-        logs = parallel(
-            run_func(
-                cfg=get_config(
-                    config=config,
-                ),
-                exec_params=config.exec_params,
-                subject=subject,
-                session=session,
-            )
-            for subject in get_subjects(config)
-            for session in get_sessions(config)
-        )
+    logs = []
+    for subject in get_subjects(config):
+        for session in get_sessions(config):
+            try:
+                result = run_func(
+                    cfg=get_config(config=config),
+                    exec_params=config.exec_params,
+                    subject=subject,
+                    session=session,
+                ) if drop_ptp is not None else None
+                # log result or deal with None return of assess_data_quality. 
+                logs.append(result) if drop_ptp is not None else logs.append(None)
+
+            except DataQualityException as e:
+                # Handle the case where assess_data_quality raised the custom exception
+                print(f"Data quality assessment exception: {e}")
+
+    # with get_parallel_backend(config.exec_params):
+    #     logs = parallel(
+    #         run_func(
+    #             cfg=get_config(
+    #                 config=config,
+    #             ),
+    #             exec_params=config.exec_params,
+    #             subject=subject,
+    #             session=session,
+    #         )
+    #         for subject in get_subjects(config)
+    #         for session in get_sessions(config)
+    #     )
     save_logs(config=config, logs=logs)

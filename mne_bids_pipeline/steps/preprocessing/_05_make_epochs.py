@@ -73,6 +73,10 @@ def get_input_fnames_epochs(
 @failsafe_run(
     get_input_fnames=get_input_fnames_epochs,
 )
+
+class DataQualityException(Exception):
+    pass
+
 def run_epochs(
     *,
     cfg: SimpleNamespace,
@@ -263,7 +267,12 @@ def run_epochs(
         epochs.plot()
         epochs.plot_image(combine="gfp", sigma=2.0, cmap="YlGnBu_r")
     assert len(in_files) == 0, in_files.keys()
-    return _prep_out_files(exec_params=exec_params, out_files=out_files)
+    
+    return_stuff = _prep_out_files(exec_params=exec_params, out_files=out_files)
+    if not return_stuff: 
+        print("nothing to return") 
+        raise DataQualityException("Nothing to return")
+    return return_stuff
 
 
 # TODO: ideally we wouldn't need this anymore and could refactor the code above
@@ -331,17 +340,39 @@ def main(*, config) -> None:
     """Run epochs."""
     with get_parallel_backend(config.exec_params):
         parallel, run_func = parallel_func(run_epochs, exec_params=config.exec_params)
-        logs = parallel(
-            run_func(
-                cfg=get_config(
-                    config=config,
-                    subject=subject,
-                ),
-                exec_params=config.exec_params,
-                subject=subject,
-                session=session,
-            )
-            for subject in get_subjects(config)
-            for session in get_sessions(config)
-        )
+    #     logs = parallel(
+    #         run_func(
+    #             cfg=get_config(
+    #                 config=config,
+    #                 subject=subject,
+    #             ),
+    #             exec_params=config.exec_params,
+    #             subject=subject,
+    #             session=session,
+    #         )
+    #         for subject in get_subjects(config)
+    #         for session in get_sessions(config)
+    #     )
+
+        logs = []
+        for subject in get_subjects(config):
+            for session in get_sessions(config):
+                try:
+                    result = run_func(
+                        cfg=get_config(config=config, subject=subject),
+                        exec_params=config.exec_params,
+                        subject=subject,
+                        session=session
+                    ) if run_epochs is not None else None
+                    # log result or deal with None return of assess_data_quality. 
+                    logs.append(result) if run_epochs is not None else logs.append(None)
+
+                except DataQualityException as e:
+                    # Handle the case where assess_data_quality raised the custom exception
+                    print(f"Data quality assessment exception: {e}")
+
+    #         print("done with one subject")  
+    #     print("done with all subjects")
+    # print("done with parallel backend")
+
     save_logs(config=config, logs=logs)

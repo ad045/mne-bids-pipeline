@@ -272,12 +272,51 @@ class ConditionalStepMemory:
         self.memory.clear()
 
 
-def save_logs(*, config: SimpleNamespace, logs) -> None:  # TODO add type
-    fname = config.deriv_root / f"task-{get_task(config)}_log.xlsx"
+# def save_logs(*, config: SimpleNamespace, logs) -> None:  # TODO add type # gets stuck here. 
+#     fname = config.deriv_root / f"task-{get_task(config)}_log.xlsx"
 
+#     # # Get the script from which the function is called for logging
+#     sheet_name = _short_step_path(_get_step_path()).replace("/", "-")
+#     sheet_name = sheet_name[-30:]  # shorten due to limit of excel format
+
+#     df = pd.DataFrame(logs)
+
+#     columns = df.columns
+#     if "cfg" in columns:
+#         columns = list(columns)
+#         idx = columns.index("cfg")
+#         del columns[idx]
+#         columns.insert(-3, "cfg")  # put it before time, success & err cols
+
+#     df = df[columns]
+
+#     # df.to_csv(fname, "/t")
+#     with FileLock(fname.with_suffix(fname.suffix + ".lock")):
+#         append = fname.exists()
+#         writer = pd.ExcelWriter(
+#             fname,
+#             engine="openpyxl",
+#             mode="a" if append else "w",
+#             if_sheet_exists="replace" if append else None,
+#         )
+#         with writer:
+#             df.to_excel(writer, sheet_name=sheet_name, index=False)
+        
+# checks if log in logs is none, and tries to evade issues with filelock. 
+from types import SimpleNamespace
+import pandas as pd
+from filelock import FileLock
+
+def save_logs(*, config: SimpleNamespace, logs) -> None:
+
+    fname = config.deriv_root / f"task-{get_task(config)}_log.xlsx"
+    print(fname)
     # Get the script from which the function is called for logging
     sheet_name = _short_step_path(_get_step_path()).replace("/", "-")
-    sheet_name = sheet_name[-30:]  # shorten due to limit of excel format
+    sheet_name = sheet_name[-30:]  # shorten due to the limit of Excel format
+    
+    
+    logs = [log for log in logs if log is not None] # filter out None values # ad
 
     df = pd.DataFrame(logs)
 
@@ -289,17 +328,146 @@ def save_logs(*, config: SimpleNamespace, logs) -> None:  # TODO add type
         columns.insert(-3, "cfg")  # put it before time, success & err cols
 
     df = df[columns]
+    # # Filter out None entries in logs
+    # logs = [log for log in logs if log is not None]
 
-    with FileLock(fname.with_suffix(fname.suffix + ".lock")):
-        append = fname.exists()
-        writer = pd.ExcelWriter(
+    # if not logs:
+    #     # No valid logs to save
+    #     return
+
+    # df = pd.DataFrame(logs)
+
+    # columns = df.columns
+    if "cfg" in columns:
+        columns = list(columns)
+        idx = columns.index("cfg")
+        del columns[idx]
+        columns.insert(-3, "cfg")  # put it before time, success & err cols
+
+    df = df[columns]
+
+    append = fname.exists()
+    # writer = pd.ExcelWriter(fname, engine="openpyxl", mode=mode)
+
+    # # Handle existing sheets if appending
+    # if append:
+    #     book = openpyxl.load_workbook(fname)
+    #     writer.book = book
+    # print("test1")
+
+    # df.to_excel(writer, sheet_name=sheet_name, index=False)
+    print("Test1")
+    writer = pd.ExcelWriter(
             fname,
-            engine="openpyxl",
             mode="a" if append else "w",
             if_sheet_exists="replace" if append else None,
         )
-        with writer:
-            df.to_excel(writer, sheet_name=sheet_name, index=False)
+    with writer:
+        df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+    print("Test2")
+
+
+# def save_logs(*, config: SimpleNamespace, logs) -> None:
+#     print("in save logs")
+#     fname = config.deriv_root / f"task-{get_task(config)}_log.xlsx"
+
+#     # Get the script from which the function is called for logging
+#     sheet_name = _short_step_path(_get_step_path()).replace("/", "-")
+#     sheet_name = sheet_name[-30:]  # shorten due to the limit of Excel format
+
+#     print("here")
+#     # Filter out None entries in logs
+#     logs = [log for log in logs if log is not None]
+
+#     print("here2")
+
+#     if not logs:
+#         # No valid logs to save
+#         return
+
+#     df = pd.DataFrame(logs)
+
+#     columns = df.columns
+#     if "cfg" in columns:
+#         columns = list(columns)
+#         idx = columns.index("cfg")
+#         del columns[idx]
+#         columns.insert(-3, "cfg")  # put it before time, success & err cols
+
+#     df = df[columns]
+#     print("here3")
+#     # lock_fname = fname.with_suffix(fname.suffix + ".lock")
+
+#     # Use a separate lock file for the Excel writer
+#     print("here4")
+
+#     with FileLock(fname.with_suffix(fname.suffix + ".lock")):
+#         append = fname.exists()
+#         print("here5")
+#         writer = pd.ExcelWriter(
+#             fname,
+#             engine="openpyxl",
+#             mode="a" if append else "w",
+#             if_sheet_exists="replace" if append else None,
+#         )
+#         print("here6")
+#         with writer:
+#             df.to_excel(writer, sheet_name=sheet_name, index=False)
+#         print("here7")
+
+
+#     # with FileLock(lock_fname):
+#     #     append = fname.exists()
+#     #     mode = "a" if append else "w"
+#     #     writer = pd.ExcelWriter(fname, engine="openpyxl", mode=mode)
+#     #     print("here5")
+#     #     # Handle existing sheets if appending
+#     #     if append:
+#     #         book = openpyxl.load_workbook(fname)
+#     #         writer.book = book
+#     #     print("here6")
+#     #     df.to_excel(writer, sheet_name=sheet_name, index=False)
+#     #     print("here7")
+#     #     writer.save()
+#     #     print("here8")
+
+
+'''from types import SimpleNamespace
+import pandas as pd
+from filelock import FileLock
+from pathlib import Path
+
+def save_logs(*, config: SimpleNamespace, logs) -> None:
+    print("CONFIG") 
+    print(config)
+    task = get_task(config)
+    base_fname = f"task-{task}_log"
+    # sheet_name = _short_step_path(_get_step_path()).replace("/", "-")[-30:]
+
+    for log in logs:
+        print("LOG")
+        print(log)
+        print("END LOG")
+        fname = config.deriv_root / f"{base_fname}_{log[2]["subject"]}.csv" #'file_suffix' instead of 0, log["file_suffix"]
+
+        df = pd.DataFrame(log) #[2]) #['data'])
+        df.to_csv(fname)
+
+        # columns = df.columns
+        # if "cfg" in columns:
+        #     columns = list(columns)
+        #     idx = columns.index("cfg")
+        #     del columns[idx]
+        #     columns.insert(-3, "cfg")  # put it before time, success & err cols
+
+        # df = df[columns]
+
+        # with FileLock(fname.with_suffix(fname.suffix + ".lock")):
+        #     append = fname.exists()
+        #     mode = "a" if append else "w"
+        #     header = not append
+        #     df.to_csv(fname, mode=mode, header=header, index=False)'''
 
 
 def _update_for_splits(

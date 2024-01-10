@@ -269,7 +269,13 @@ def filter_data(
         )
 
     assert len(in_files) == 0, in_files.keys()
-    return _prep_out_files(exec_params=exec_params, out_files=out_files)
+    print(subject)
+    print(_prep_out_files(exec_params=exec_params, out_files=out_files))
+    if _prep_out_files(exec_params=exec_params, out_files=out_files): 
+        return _prep_out_files(exec_params=exec_params, out_files=out_files)
+    else: 
+        return None
+        print("None")
 
 
 def get_config(
@@ -316,31 +322,64 @@ def main(*, config: SimpleNamespace) -> None:
             #     session=session,
             # )
         # )
-        logs = []
-        for subject in get_subjects(config):
-            for session in get_sessions(config):
-                for run, task in get_runs_tasks(
+
+        ####
+        logs = parallel(
+            run_func(
+                cfg=get_config(
                     config=config,
                     subject=subject,
-                    session=session,
-                ):
-                    try:
-                        result = run_func(
-                            cfg=get_config(config=config, subject=subject),
-                            exec_params=config.exec_params,
-                            subject=subject,
-                            session=session,
-                            run=run,
-                            task=task,
-                        ) if filter_data is not None else None #filter data == None caused errors before. 
-                        # log result or deal with None return of assess_data_quality. 
-                        logs.append(result) if filter_data is not None else logs.append(None)
+                ),
+                exec_params=config.exec_params,
+                subject=subject,
+                session=session,
+                run=run,
+                task=task,
+            )
+            for subject in get_subjects(config)
+            for session in get_sessions(config)
+            for run, task in get_runs_tasks(
+                config=config,
+                subject=subject,
+                session=session,
+            )
+            if run_func(  # Check if filter_data is not None before including it in the list
+                cfg=get_config(
+                    config=config,
+                    subject=subject,
+                ),
+                exec_params=config.exec_params,
+                subject=subject,
+                session=session,
+                run=run,
+                task=task,
+            ) is not None
+        )
 
-                    except DataQualityException as e:
-                        # Handle the case where assess_data_quality raised the custom exception
-                        print(f"Data quality assessment exception: {e}")
-                    except Exception as e: 
-                        print(f"Sth went wrong. Error message {e}")
+        ####
+        # logs = []
+        # for subject in get_subjects(config):
+        #     for session in get_sessions(config):
+        #         for run, task in get_runs_tasks(
+        #             config=config,
+        #             subject=subject,
+        #             session=session,
+        #         ):
+        #             try:
+        #                 result = run_func(
+        #                     cfg=get_config(config=config, subject=subject),
+        #                     exec_params=config.exec_params,
+        #                     subject=subject,
+        #                     session=session,
+        #                     run=run,
+        #                     task=task,
+        #                 ) if filter_data is not None else None #filter data == None caused errors before. 
+        #                 # log result or deal with None return of assess_data_quality. 
+        #                 logs.append(result) if filter_data is not None else logs.append(None)
+
+        #             except DataQualityException as e:
+        #                 # Handle the case where assess_data_quality raised the custom exception
+        #                 print(f"Data quality assessment exception: {e}")
   
 
     save_logs(config=config, logs=logs)
