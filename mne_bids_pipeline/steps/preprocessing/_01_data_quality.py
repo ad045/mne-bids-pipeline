@@ -338,21 +338,21 @@ def main(*, config: SimpleNamespace) -> None:
                     subject=subject,
                     session=session,
                 ):
-                    try:
-                        result = run_func(
-                            cfg=get_config(config=config, subject=subject, session=session),
-                            exec_params=config.exec_params,
-                            subject=subject,
-                            session=session,
-                            run=run,
-                            task=task,
-                        ) if assess_data_quality is not None else None
-                        # log result or deal with None return of assess_data_quality. 
-                        logs.append(result) if assess_data_quality is not None else logs.append(None)
+                    # try:
+                    result = run_func(
+                        cfg=get_config(config=config, subject=subject, session=session),
+                        exec_params=config.exec_params,
+                        subject=subject,
+                        session=session,
+                        run=run,
+                        task=task,
+                    ) if assess_data_quality is not None else None
+                    # log result or deal with None return of assess_data_quality. 
+                    logs.append(result) if assess_data_quality is not None else logs.append(None)
 
-                    except DataQualityException as e:
-                        # Handle the case where assess_data_quality raised the custom exception
-                        print(f"Data quality assessment exception: {e}")
+                    # except DataQualityException as e:
+                    #     # Handle the case where assess_data_quality raised the custom exception
+                    #     print(f"Data quality assessment exception: {e}")
 
                     if result == None: 
                         print("None_01_result")
